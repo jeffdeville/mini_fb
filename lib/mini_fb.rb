@@ -347,7 +347,7 @@ module MiniFB
     # * secret - the connect application secret
     # * cookies - the cookies given by facebook - it is ok to just pass all of the cookies, the method will do the filtering for you.
     def MiniFB.parse_cookie_information(app_id, cookies)
-        return nil if cookies["fbs_#{app_id}"].nil?
+        return nil if cookies.nil? || cookies["fbs_#{app_id}"].nil?
         Hash[*cookies["fbs_#{app_id}"].split('&').map { |v| v.gsub('"', '').split('=', 2) }.flatten]
     end
 
@@ -582,7 +582,7 @@ module MiniFB
             end
         end
         params["access_token"] = "#{(access_token)}"
-        params["metadata"] = "1" if options[:metadata]
+        params["metadata"] = "1" if options[:metadataadata]
         options[:params] = params
         options[:method] = :post
         return fetch(url, options)
@@ -623,7 +623,7 @@ module MiniFB
     def self.rest(access_token, api_method, options={})
         url = "https://api.facebook.com/method/#{api_method}"
         params = options[:params] || {}
-        params[:access_token] = access_token
+        params[:access_token] = access_token unless access_token.nil?
         params[:format] = "JSON"
         options[:params] = params
         return fetch(url, options)
@@ -677,8 +677,18 @@ module MiniFB
         rescue RestClient::Exception => ex
             puts "ex.http_code=" + ex.http_code.to_s
             puts 'ex.http_body=' + ex.http_body if @@logging
-            res_hash = JSON.parse(ex.http_body) # probably should ensure it has a good response
-            raise MiniFB::FaceBookError.new(ex.http_code, "#{res_hash["error"]["type"]}: #{res_hash["error"]["message"]}")
+            
+						res_hash = nil
+						begin
+							res_hash = JSON.parse(ex.http_body) # probably should ensure it has a good response
+						rescue
+						end
+            
+						if res_hash.nil? || res_hash["error"].nil?
+							raise MiniFB::FaceBookError.new(ex.http_code, "Unknown error occurred")							 
+						else
+							raise MiniFB::FaceBookError.new(ex.http_code, "#{res_hash["error"]["type"]}: #{res_hash["error"]["message"]}")
+						end
         end
 
     end
